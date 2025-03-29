@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff } from "lucide-react";
@@ -13,24 +13,6 @@ interface PasswordInputProps {
 
 const PasswordInput = ({ password, setPassword, onAnalyze, isLoading }: PasswordInputProps) => {
   const [showPassword, setShowPassword] = useState(false);
-  const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
-
-  // Auto-analyze after user stops typing for 500ms
-  useEffect(() => {
-    if (!password) return;
-    
-    if (typingTimeout) clearTimeout(typingTimeout);
-    
-    const timeout = setTimeout(() => {
-      onAnalyze();
-    }, 500);
-    
-    setTypingTimeout(timeout);
-    
-    return () => {
-      if (typingTimeout) clearTimeout(typingTimeout);
-    };
-  }, [password, onAnalyze]);
 
   return (
     <div className="relative w-full">
