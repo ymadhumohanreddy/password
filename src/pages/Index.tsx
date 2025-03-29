@@ -12,6 +12,9 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { motion } from "framer-motion";
 
+// API endpoint for the Flask backend
+const API_ENDPOINT = "http://localhost:5000/analyze";
+
 const Index = () => {
   const { toast } = useToast();
   const [password, setPassword] = useState("");
@@ -24,11 +27,8 @@ const Index = () => {
     
     setIsLoading(true);
     try {
-      // For demonstration, we'll simulate the API call
-      // In a real app, uncomment the fetch call to use your actual backend
-      
-      /*
-      const response = await fetch("http://localhost:5000/analyze", {
+      // Connect to the real Flask backend
+      const response = await fetch(API_ENDPOINT, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -42,107 +42,116 @@ const Index = () => {
       
       const data = await response.json();
       setPasswordData(data);
-      */
+      setIsLoading(false);
       
-      // Simulated response for demonstration
-      setTimeout(() => {
-        // Simulate entropy calculation based on password complexity
-        const hasLower = /[a-z]/.test(password);
-        const hasUpper = /[A-Z]/.test(password);
-        const hasDigit = /\d/.test(password);
-        const hasSpecial = /[^a-zA-Z0-9]/.test(password);
-        
-        let poolSize = 0;
-        if (hasLower) poolSize += 26;
-        if (hasUpper) poolSize += 26;
-        if (hasDigit) poolSize += 10;
-        if (hasSpecial) poolSize += 33;
-        
-        const entropy = Math.round(password.length * Math.log2(poolSize || 1) * 100) / 100;
-        
-        // Common passwords list (simulated RockYou check)
-        const commonPasswords = ["password", "123456", "qwerty", "admin", "welcome", "password123"];
-        const compromised = commonPasswords.includes(password.toLowerCase());
-        
-        // Simulate cracking time estimates
-        const getCrackTime = (ent: number) => {
-          const times: Record<string, string> = {};
-          const speeds = {
-            "Online (1k guesses/sec)": 1e3,
-            "Fast GPU (1 trillion guesses/sec)": 1e12,
-            "Supercomputer (100 trillion/sec)": 1e14
-          };
-          
-          for (const [attack, speed] of Object.entries(speeds)) {
-            const crackSeconds = Math.pow(2, ent) / speed;
-            
-            let timeString;
-            if (crackSeconds < 60) {
-              timeString = `${crackSeconds.toFixed(2)} sec`;
-            } else if (crackSeconds < 3600) {
-              timeString = `${(crackSeconds / 60).toFixed(2)} min`;
-            } else if (crackSeconds < 86400) {
-              timeString = `${(crackSeconds / 3600).toFixed(2)} hr`;
-            } else if (crackSeconds < 2592000) {
-              timeString = `${(crackSeconds / 86400).toFixed(2)} days`;
-            } else if (crackSeconds < 31536000) {
-              timeString = `${(crackSeconds / 2592000).toFixed(2)} months`;
-            } else {
-              timeString = `${(crackSeconds / 31536000).toFixed(2)} years`;
-            }
-            
-            times[attack] = timeString;
-          }
-          
-          return times;
-        };
-        
-        // Generate suggested stronger passwords
-        const generateStrongPassword = (length = 16) => {
-          const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+~`|}{[]:;?><,./-=";
-          return Array(length).fill(0).map(() => chars.charAt(Math.floor(Math.random() * chars.length))).join('');
-        };
-        
-        const simData = {
-          entropy: entropy,
-          crackTimes: getCrackTime(entropy),
-          hardened: password + "!A9" + password.split("").reverse().join("").substring(0, 3),
-          suggestions: [
-            generateStrongPassword(),
-            generateStrongPassword(),
-            generateStrongPassword()
-          ],
-          explanation: `Your password "${password}" has ${entropy} bits of entropy. ${
-            compromised ? "It appears in common password lists!" : 
-            entropy < 40 ? "It's too simple and can be easily guessed." :
-            entropy < 60 ? "It lacks sufficient complexity." :
-            entropy < 80 ? "It has decent complexity but could be stronger." :
-            "It has good complexity."
-          } ${
-            !hasUpper ? "Adding uppercase letters would improve security. " : ""
-          }${
-            !hasDigit ? "Adding numbers would improve security. " : ""
-          }${
-            !hasSpecial ? "Adding special characters would improve security. " : ""
-          }${
-            password.length < 12 ? "Longer passwords are more secure." : ""
-          }`,
-          compromised: compromised
-        };
-        
-        setPasswordData(simData);
-        setIsLoading(false);
-      }, 1000);
-      
+      if (data.compromised) {
+        toast({
+          title: "Security Alert",
+          description: "This password has been found in data breaches!",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error("Error analyzing password:", error);
       toast({
         title: "Error",
-        description: "Failed to analyze password. Please try again.",
+        description: "Failed to connect to password analysis server. Using fallback mode.",
         variant: "destructive",
       });
-      setIsLoading(false);
+      
+      // Fallback to simulated response if backend is unavailable
+      simulateAnalysis();
     }
+  };
+
+  // Fallback function in case the backend is not available
+  const simulateAnalysis = () => {
+    // Simulate entropy calculation based on password complexity
+    const hasLower = /[a-z]/.test(password);
+    const hasUpper = /[A-Z]/.test(password);
+    const hasDigit = /\d/.test(password);
+    const hasSpecial = /[^a-zA-Z0-9]/.test(password);
+    
+    let poolSize = 0;
+    if (hasLower) poolSize += 26;
+    if (hasUpper) poolSize += 26;
+    if (hasDigit) poolSize += 10;
+    if (hasSpecial) poolSize += 33;
+    
+    const entropy = Math.round(password.length * Math.log2(poolSize || 1) * 100) / 100;
+    
+    // Common passwords list (simulated RockYou check)
+    const commonPasswords = ["password", "123456", "qwerty", "admin", "welcome", "password123"];
+    const compromised = commonPasswords.includes(password.toLowerCase());
+    
+    // Simulate cracking time estimates
+    const getCrackTime = (ent: number) => {
+      const times: Record<string, string> = {};
+      const speeds = {
+        "Online (1k guesses/sec)": 1e3,
+        "Fast GPU (1 trillion guesses/sec)": 1e12,
+        "Supercomputer (100 trillion/sec)": 1e14
+      };
+      
+      for (const [attack, speed] of Object.entries(speeds)) {
+        const crackSeconds = Math.pow(2, ent) / speed;
+        
+        let timeString;
+        if (crackSeconds < 60) {
+          timeString = `${crackSeconds.toFixed(2)} sec`;
+        } else if (crackSeconds < 3600) {
+          timeString = `${(crackSeconds / 60).toFixed(2)} min`;
+        } else if (crackSeconds < 86400) {
+          timeString = `${(crackSeconds / 3600).toFixed(2)} hr`;
+        } else if (crackSeconds < 2592000) {
+          timeString = `${(crackSeconds / 86400).toFixed(2)} days`;
+        } else if (crackSeconds < 31536000) {
+          timeString = `${(crackSeconds / 2592000).toFixed(2)} months`;
+        } else {
+          timeString = `${(crackSeconds / 31536000).toFixed(2)} years`;
+        }
+        
+        times[attack] = timeString;
+      }
+      
+      return times;
+    };
+    
+    // Generate suggested stronger passwords
+    const generateStrongPassword = (length = 16) => {
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+~`|}{[]:;?><,./-=";
+      return Array(length).fill(0).map(() => chars.charAt(Math.floor(Math.random() * chars.length))).join('');
+    };
+    
+    const simData = {
+      entropy: entropy,
+      crackTimes: getCrackTime(entropy),
+      hardened: password + "!A9" + password.split("").reverse().join("").substring(0, 3),
+      suggestions: [
+        generateStrongPassword(),
+        generateStrongPassword(),
+        generateStrongPassword()
+      ],
+      explanation: `Your password "${password}" has ${entropy} bits of entropy. ${
+        compromised ? "It appears in common password lists!" : 
+        entropy < 40 ? "It's too simple and can be easily guessed." :
+        entropy < 60 ? "It lacks sufficient complexity." :
+        entropy < 80 ? "It has decent complexity but could be stronger." :
+        "It has good complexity."
+      } ${
+        !hasUpper ? "Adding uppercase letters would improve security. " : ""
+      }${
+        !hasDigit ? "Adding numbers would improve security. " : ""
+      }${
+        !hasSpecial ? "Adding special characters would improve security. " : ""
+      }${
+        password.length < 12 ? "Longer passwords are more secure." : ""
+      }`,
+      compromised: compromised
+    };
+    
+    setPasswordData(simData);
+    setIsLoading(false);
   };
 
   // Animation variants for results sections

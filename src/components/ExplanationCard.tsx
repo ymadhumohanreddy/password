@@ -1,6 +1,6 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Shield } from "lucide-react";
 
 interface ExplanationCardProps {
   explanation: string;
@@ -12,7 +12,7 @@ const ExplanationCard = ({ explanation, compromised }: ExplanationCardProps) => 
     <Card className="card-gradient card-hover">
       <CardHeader className="pb-2">
         <CardTitle className="text-lg flex items-center">
-          <AlertCircle className="mr-2" size={18} />
+          <Shield className="mr-2" size={18} />
           Security Analysis
         </CardTitle>
       </CardHeader>
