@@ -228,11 +228,6 @@ const Index = () => {
         )}
         
         <Separator className="my-12 opacity-30" />
-        
-        <footer className="text-center text-sm text-muted-foreground">
-          <p>Password Palooza - Created for the Hackathon</p>
-          <p className="mt-1">Powered by advanced security algorithms and machine learning</p>
-        </footer>
       </div>
     </>
   );

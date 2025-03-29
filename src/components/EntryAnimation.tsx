@@ -61,7 +61,7 @@ const EntryAnimation = ({ onComplete }: EntryAnimationProps) => {
             repeatType: "loop" 
           }}
         >
-          Password Palooza
+          Password Analyzer
         </motion.h1>
         
         <p className="text-muted-foreground">Loading security tools...</p>
