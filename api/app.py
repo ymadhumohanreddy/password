@@ -5,14 +5,9 @@ import math
 import random
 import string
 import hashlib
-import torch
-from transformers import pipeline
 
 app = Flask(__name__)
 CORS(app)
-
-# Load a pretrained GenAI model for explanations
-genai_explainer = pipeline("text-generation", model="gpt2")
 
 # Load RockYou dataset into a set for fast lookup
 def load_rockyou():
@@ -85,13 +80,6 @@ def generate_strong_password(length=16):
     characters = string.ascii_letters + string.digits + string.punctuation
     return ''.join(random.choice(characters) for _ in range(length))
 
-# AI-powered password analysis with reasoning
-def analyze_password_strength(password):
-    hashed_password = hashlib.sha256(password.encode()).hexdigest()
-    prompt = f"Evaluate the weaknesses of the password '{password}', explaining why it is vulnerable and the potential methods an attacker could use to crack it."
-    explanation = genai_explainer(prompt, max_length=100, num_return_sequences=1)[0]['generated_text']
-    return explanation
-
 @app.route('/analyze', methods=['POST'])
 def analyze_password():
     data = request.get_json()
@@ -104,8 +92,7 @@ def analyze_password():
     crack_times = estimate_crack_time(entropy)
     hardened = harden_password(password)
     suggestions = [generate_strong_password() for _ in range(3)]
-    explanation = analyze_password_strength(password)
-
+    
     # Check if password exists in RockYou dataset
     compromised = check_rockyou(password)
 
@@ -114,9 +101,49 @@ def analyze_password():
         'crackTimes': crack_times,
         'hardened': hardened,
         'suggestions': suggestions,
-        'explanation': explanation,
         'compromised': compromised
     })
+
+# Generate a password based on user answers
+def generate_dna_password(favorite_character, childhood_pet, dream_destination):
+    # Extract parts from each answer, making sure they're not empty
+    char_part = favorite_character[:3] if favorite_character else random.choice(string.ascii_lowercase) * 3
+    pet_part = childhood_pet[-3:] if len(childhood_pet) >= 3 else childhood_pet + random.choice(string.ascii_lowercase) * (3 - len(childhood_pet))
+    destination_part = dream_destination[:2] if dream_destination else random.choice(string.ascii_lowercase) * 2
+    
+    # Combine parts and add required character types for strength
+    base = char_part + pet_part + destination_part
+    base += random.choice(string.ascii_uppercase)  # Adding a capital letter
+    base += random.choice(string.digits)  # Adding a number
+    base += random.choice(string.punctuation)  # Adding a special character
+    
+    # Shuffle to make it less predictable
+    password_list = list(base)
+    random.shuffle(password_list)
+    result = ''.join(password_list)
+    
+    # Calculate entropy of the generated password
+    entropy = calculate_entropy(result)
+    crack_times = estimate_crack_time(entropy)
+    
+    return {
+        'password': result,
+        'entropy': entropy,
+        'crackTimes': crack_times
+    }
+
+@app.route('/generate-dna-password', methods=['POST'])
+def generate_dna_password_endpoint():
+    data = request.get_json()
+    favorite_character = data.get('favoriteCharacter', '')
+    childhood_pet = data.get('childhoodPet', '')
+    dream_destination = data.get('dreamDestination', '')
+    
+    if not all([favorite_character, childhood_pet, dream_destination]):
+        return jsonify({'error': 'All three answers are required'}), 400
+    
+    result = generate_dna_password(favorite_character, childhood_pet, dream_destination)
+    return jsonify(result)
 
 if __name__ == '__main__':
     app.run(debug=True)

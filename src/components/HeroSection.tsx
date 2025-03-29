@@ -1,4 +1,3 @@
-
 import { ShieldCheck, ShieldAlert, Lock } from "lucide-react";
 
 const HeroSection = () => {
@@ -18,7 +17,7 @@ const HeroSection = () => {
       </div>
       
       <h1 className="text-4xl md:text-5xl font-bold mb-4">
-        <span className="text-primary">Password</span> Analyzer
+        <span className="text-primary">Password</span> Strength Analyzer
       </h1>
       
       <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-8">

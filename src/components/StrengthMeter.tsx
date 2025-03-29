@@ -1,4 +1,3 @@
-
 import { AlertTriangle, ShieldAlert, ShieldCheck } from "lucide-react";
 
 interface StrengthMeterProps {

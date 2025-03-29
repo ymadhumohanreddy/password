@@ -1,15 +1,15 @@
-
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import HeroSection from "@/components/HeroSection";
 import PasswordInput from "@/components/PasswordInput";
 import StrengthMeter from "@/components/StrengthMeter";
 import CrackTimeCard from "@/components/CrackTimeCard";
 import SuggestionsCard from "@/components/SuggestionsCard";
-import ExplanationCard from "@/components/ExplanationCard";
+import DnaPasswordGenerator from "@/components/DnaPasswordGenerator";
 import EntryAnimation from "@/components/EntryAnimation";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
 
 // API endpoint for the Flask backend
@@ -42,7 +42,6 @@ const Index = () => {
       
       const data = await response.json();
       setPasswordData(data);
-      setIsLoading(false);
       
       if (data.compromised) {
         toast({
@@ -61,6 +60,8 @@ const Index = () => {
       
       // Fallback to simulated response if backend is unavailable
       simulateAnalysis();
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -132,26 +133,10 @@ const Index = () => {
         generateStrongPassword(),
         generateStrongPassword()
       ],
-      explanation: `Your password "${password}" has ${entropy} bits of entropy. ${
-        compromised ? "It appears in common password lists!" : 
-        entropy < 40 ? "It's too simple and can be easily guessed." :
-        entropy < 60 ? "It lacks sufficient complexity." :
-        entropy < 80 ? "It has decent complexity but could be stronger." :
-        "It has good complexity."
-      } ${
-        !hasUpper ? "Adding uppercase letters would improve security. " : ""
-      }${
-        !hasDigit ? "Adding numbers would improve security. " : ""
-      }${
-        !hasSpecial ? "Adding special characters would improve security. " : ""
-      }${
-        password.length < 12 ? "Longer passwords are more secure." : ""
-      }`,
       compromised: compromised
     };
     
     setPasswordData(simData);
-    setIsLoading(false);
   };
 
   // Animation variants for results sections
@@ -184,48 +169,54 @@ const Index = () => {
       <div className="min-h-screen w-full max-w-7xl mx-auto px-4 pb-16">
         <HeroSection />
         
-        <Card className="p-6 mb-8 card-gradient">
-          <PasswordInput
-            password={password}
-            setPassword={setPassword}
-            onAnalyze={analyzePassword}
-            isLoading={isLoading}
-          />
+        <Tabs defaultValue="analyzer" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="analyzer">Password Analyzer</TabsTrigger>
+            <TabsTrigger value="dna">DNA Password Generator</TabsTrigger>
+          </TabsList>
           
-          {passwordData && (
-            <StrengthMeter 
-              entropy={passwordData.entropy} 
-              compromised={passwordData.compromised} 
-            />
-          )}
-        </Card>
-        
-        {passwordData && (
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            className="grid grid-cols-1 md:grid-cols-2 gap-6"
-          >
-            <motion.div variants={itemVariants}>
-              <ExplanationCard
-                explanation={passwordData.explanation}
-                compromised={passwordData.compromised}
+          <TabsContent value="analyzer" className="space-y-6">
+            <Card className="p-6 mb-8 card-gradient">
+              <PasswordInput
+                password={password}
+                setPassword={setPassword}
+                onAnalyze={analyzePassword}
+                isLoading={isLoading}
               />
-            </motion.div>
+              
+              {passwordData && (
+                <StrengthMeter 
+                  entropy={passwordData.entropy} 
+                  compromised={passwordData.compromised} 
+                />
+              )}
+            </Card>
             
-            <motion.div variants={itemVariants}>
-              <CrackTimeCard crackTimes={passwordData.crackTimes} />
-            </motion.div>
-            
-            <motion.div variants={itemVariants} className="md:col-span-2">
-              <SuggestionsCard
-                hardened={passwordData.hardened}
-                suggestions={passwordData.suggestions}
-              />
-            </motion.div>
-          </motion.div>
-        )}
+            {passwordData && (
+              <motion.div
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                className="grid grid-cols-1 md:grid-cols-2 gap-6"
+              >
+                <motion.div variants={itemVariants} className="md:col-span-2">
+                  <CrackTimeCard crackTimes={passwordData.crackTimes} />
+                </motion.div>
+                
+                <motion.div variants={itemVariants} className="md:col-span-2">
+                  <SuggestionsCard
+                    hardened={passwordData.hardened}
+                    suggestions={passwordData.suggestions}
+                  />
+                </motion.div>
+              </motion.div>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="dna">
+            <DnaPasswordGenerator />
+          </TabsContent>
+        </Tabs>
         
         <Separator className="my-12 opacity-30" />
       </div>
