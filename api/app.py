@@ -1,10 +1,13 @@
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import math
 import random
 import string
 import hashlib
+import numpy as np
+from scipy.io.wavfile import write
+import os
+import time
 
 app = Flask(__name__)
 CORS(app)
@@ -104,46 +107,140 @@ def analyze_password():
         'compromised': compromised
     })
 
-# Generate a password based on user answers
-def generate_dna_password(favorite_character, childhood_pet, dream_destination):
-    # Extract parts from each answer, making sure they're not empty
-    char_part = favorite_character[:3] if favorite_character else random.choice(string.ascii_lowercase) * 3
-    pet_part = childhood_pet[-3:] if len(childhood_pet) >= 3 else childhood_pet + random.choice(string.ascii_lowercase) * (3 - len(childhood_pet))
-    destination_part = dream_destination[:2] if dream_destination else random.choice(string.ascii_lowercase) * 2
+# Convert user input to audio waveform and byte stream
+def generate_waveform_from_text(text):
+    # Basic waveform properties
+    duration = 0.5  # 0.5 seconds per character
+    sample_rate = 44100  # CD-quality audio
+
+    # Convert text to frequencies and amplitudes
+    frequencies = [ord(char) * 10 for char in text]  # Map ASCII values to frequency
+    time_points = np.linspace(0, duration, int(sample_rate * duration))
+
+    # Create waveform based on characters
+    waveform = np.zeros_like(time_points)
+    for freq in frequencies:
+        waveform += np.sin(2 * np.pi * freq * time_points)
+
+    # Normalize waveform
+    waveform = waveform * (32767 / np.max(np.abs(waveform)))
+
+    # Generate a unique filename with timestamp
+    temp_filename = f"temp_audio_{int(time.time())}.wav"
+    write(temp_filename, sample_rate, waveform.astype(np.int16))
+
+    # Read file in binary mode
+    with open(temp_filename, "rb") as audio_file:
+        byte_stream = audio_file.read()
     
-    # Combine parts and add required character types for strength
-    base = char_part + pet_part + destination_part
-    base += random.choice(string.ascii_uppercase)  # Adding a capital letter
-    base += random.choice(string.digits)  # Adding a number
-    base += random.choice(string.punctuation)  # Adding a special character
+    # Clean up temp file
+    os.remove(temp_filename)
+
+    return byte_stream
+
+# Create a standard password (memorable)
+def generate_standard_password(answers):
+    # Extract initials of each answer and capitalize
+    initials = "".join([answer[0].upper() for answer in answers if answer])
+
+    # Add a random symbol between initials
+    symbol = random.choice("!@#$%^&*")
+
+    # Take first 3 characters from the longest answer for variation
+    longest_answer = max(answers, key=len) if answers else ""
+    partial_word = longest_answer[:3].capitalize() if longest_answer else ""
+
+    # Generate a random 3-digit number
+    random_number = str(random.randint(100, 999))
+
+    # Shuffle parts for extra randomness
+    components = [initials, symbol, partial_word, random_number]
+    random.shuffle(components)
+
+    # Join the components to create a memorable password
+    password = "".join(components)
     
-    # Shuffle to make it less predictable
-    password_list = list(base)
-    random.shuffle(password_list)
-    result = ''.join(password_list)
+    return password
+
+# Create password from audio byte stream (advanced)
+def generate_advanced_password(byte_stream):
+    # Hash the byte stream
+    hashed_audio = hashlib.sha256(byte_stream).hexdigest()
+
+    # Extract a secure substring from the hash
+    password_from_audio = hashed_audio[:16]
     
-    # Calculate entropy of the generated password
-    entropy = calculate_entropy(result)
+    return password_from_audio
+
+# Create a hybrid password combining both approaches
+def generate_hybrid_password(standard_password, advanced_password):
+    # Take half of each password type and combine
+    hybrid = standard_password[:len(standard_password)//2] + "-" + advanced_password[:8]
+    return hybrid
+
+# Generate DNA password based on answers and password type
+def generate_dna_password(answers, password_type="hybrid"):
+    # Generate audio byte stream from concatenated answers
+    combined_text = "".join(answers)
+    byte_stream = generate_waveform_from_text(combined_text)
+
+    # Generate standard (memorable) password
+    standard_password = generate_standard_password(answers)
+    
+    # Generate advanced (secure) password from audio hash
+    advanced_password = generate_advanced_password(byte_stream)
+    
+    # Select the appropriate password based on type
+    if password_type == "standard":
+        final_password = standard_password
+        strength = "moderate"
+        entropy = calculate_entropy(final_password)
+    elif password_type == "advanced":
+        final_password = advanced_password
+        strength = "very-strong"
+        entropy = calculate_entropy(final_password)
+    else:  # hybrid (default)
+        final_password = generate_hybrid_password(standard_password, advanced_password)
+        strength = "strong"
+        entropy = calculate_entropy(final_password)
+    
+    # Calculate crack times
     crack_times = estimate_crack_time(entropy)
     
+    # Determine strength category
+    if entropy < 40:
+        strength = "weak"
+    elif entropy < 60:
+        strength = "moderate"
+    elif entropy < 80:
+        strength = "strong"
+    else:
+        strength = "very-strong"
+    
     return {
-        'password': result,
+        'password': final_password,
         'entropy': entropy,
-        'crackTimes': crack_times
+        'crackTimes': crack_times,
+        'type': password_type,
+        'strength': strength,
+        'audioAvailable': False  # Audio download not implemented yet
     }
 
 @app.route('/generate-dna-password', methods=['POST'])
 def generate_dna_password_endpoint():
     data = request.get_json()
-    favorite_character = data.get('favoriteCharacter', '')
-    childhood_pet = data.get('childhoodPet', '')
-    dream_destination = data.get('dreamDestination', '')
+    answers = data.get('answers', [])
+    password_type = data.get('passwordType', 'hybrid')
     
-    if not all([favorite_character, childhood_pet, dream_destination]):
-        return jsonify({'error': 'All three answers are required'}), 400
+    if not all(answers):
+        return jsonify({'error': 'All answers are required'}), 400
     
-    result = generate_dna_password(favorite_character, childhood_pet, dream_destination)
-    return jsonify(result)
+    try:
+        result = generate_dna_password(answers, password_type)
+        return jsonify(result)
+    except Exception as e:
+        print(f"Error generating DNA password: {e}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
