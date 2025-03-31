@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Copy, CheckCircle, Wand2 } from "lucide-react";
+import { Copy, CheckCircle, Wand2, AlertCircle, Info } from "lucide-react";
 import { toast } from "sonner";
 
 interface SuggestionsCardProps {
   hardened: string;
   suggestions: string[];
+  securityTips?: string[];
 }
 
-const SuggestionsCard = ({ hardened, suggestions }: SuggestionsCardProps) => {
+const SuggestionsCard = ({ hardened, suggestions, securityTips = [] }: SuggestionsCardProps) => {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const copyToClipboard = (text: string, index: number) => {
@@ -32,6 +33,23 @@ const SuggestionsCard = ({ hardened, suggestions }: SuggestionsCardProps) => {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
+          {securityTips && securityTips.length > 0 && (
+            <div>
+              <p className="text-sm text-muted-foreground mb-1 flex items-center">
+                <AlertCircle size={14} className="mr-1 text-yellow-500" />
+                Security tips:
+              </p>
+              <ul className="space-y-1 pl-2">
+                {securityTips.map((tip, index) => (
+                  <li key={index} className="text-sm flex items-start">
+                    <Info size={14} className="mr-1 mt-1 text-info" />
+                    <span>{tip}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div>
             <p className="text-sm text-muted-foreground mb-1">Hardened version of your password:</p>
             <div className="flex items-center justify-between bg-secondary/30 p-2 rounded">

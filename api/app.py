@@ -8,6 +8,17 @@ import numpy as np
 from scipy.io.wavfile import write
 import os
 import time
+import json
+
+# Add these new imports for the enhanced password analyzer
+try:
+    import torch
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer
+    import zxcvbn
+    ENHANCED_MODE = True
+except ImportError:
+    print("Warning: Enhanced password analysis libraries not found. Using basic analysis mode.")
+    ENHANCED_MODE = False
 
 app = Flask(__name__)
 CORS(app)
@@ -25,6 +36,64 @@ ROCKYOU_SET = load_rockyou()
 
 def check_rockyou(password):
     return password in ROCKYOU_SET
+
+# Load CodeBERT model and tokenizer if enhanced mode is available
+if ENHANCED_MODE:
+    try:
+        model_name = "DunnBC22/codebert-base-Password_Strength_Classifier"
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        model = AutoModelForSequenceClassification.from_pretrained(model_name)
+        model.eval()
+        print("CodeBERT model loaded successfully.")
+    except Exception as e:
+        print(f"Error loading CodeBERT model: {e}")
+        ENHANCED_MODE = False
+
+# Enhanced password analysis using CodeBERT and zxcvbn
+def enhanced_analyze_password(password):
+    # Analyze with zxcvbn
+    zxcvbn_result = zxcvbn.zxcvbn(password)
+    
+    # Get CodeBERT prediction
+    inputs = tokenizer(password, padding="max_length", max_length=128, truncation=True, return_tensors="pt")
+    with torch.no_grad():
+        outputs = model(**inputs)
+        predictions = torch.nn.functional.softmax(outputs.logits, dim=-1)
+        predicted_class = torch.argmax(predictions, dim=-1).item()
+    
+    # Map predicted class to strength labels (assuming 5 classes)
+    strength_labels = ["Very Weak", "Weak", "Moderate", "Strong", "Very Strong"]
+    predicted_strength = strength_labels[predicted_class]
+    
+    # Extract crack times from zxcvbn
+    crack_times = {
+        "Online (10/s)": zxcvbn_result["crack_times_display"]["online_throttling_100_per_hour"],
+        "Offline (10k/s)": zxcvbn_result["crack_times_display"]["offline_slow_hashing_1e4_per_second"],
+        "Fast GPU (1 trillion/sec)": zxcvbn_result["crack_times_display"]["offline_fast_hashing_1e10_per_second"]
+    }
+    
+    # Extract suggestions
+    suggestions = zxcvbn_result.get("feedback", {}).get("suggestions", [])
+    warning = zxcvbn_result.get("feedback", {}).get("warning")
+    if warning:
+        suggestions.insert(0, warning)
+    
+    # Generate strong alternatives (maintaining backward compatibility)
+    hardened = password + "!A9" + password[:3][::-1]
+    
+    # Calculate entropy for backward compatibility
+    entropy_score = zxcvbn_result["score"] * 25
+    entropy = entropy_score if entropy_score > 0 else calculate_entropy(password)
+    
+    return {
+        "entropy": entropy,
+        "crackTimes": crack_times,
+        "score": zxcvbn_result["score"],
+        "strengthText": predicted_strength,
+        "suggestions": suggestions,
+        "hardened": hardened,
+        "zxcvbn_result": zxcvbn_result
+    }
 
 # Assumed password cracking speeds
 CRACKING_SPEED = {
@@ -91,14 +160,26 @@ def analyze_password():
     if not password:
         return jsonify({'error': 'Password cannot be empty'}), 400
     
+    # Check if password exists in RockYou dataset
+    compromised = check_rockyou(password)
+    
+    # Use enhanced analysis if available
+    if ENHANCED_MODE:
+        try:
+            result = enhanced_analyze_password(password)
+            result['compromised'] = compromised
+            return jsonify(result)
+        except Exception as e:
+            print(f"Enhanced analysis failed, falling back to basic: {e}")
+            # Fall back to basic analysis
+            pass
+    
+    # Basic analysis (original implementation)
     entropy = calculate_entropy(password)
     crack_times = estimate_crack_time(entropy)
     hardened = harden_password(password)
     suggestions = [generate_strong_password() for _ in range(3)]
     
-    # Check if password exists in RockYou dataset
-    compromised = check_rockyou(password)
-
     return jsonify({
         'entropy': entropy,
         'crackTimes': crack_times,

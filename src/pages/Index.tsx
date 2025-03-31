@@ -104,10 +104,15 @@ const Index = () => {
       }
       
       const data = await response.json();
-      setPasswordData({
+      
+      // Handle both legacy and enhanced response formats
+      const processedData = {
         ...data,
-        exposureCount
-      });
+        exposureCount,
+        securityTips: data.suggestions || []
+      };
+      
+      setPasswordData(processedData);
       
       if (data.compromised) {
         toast({
@@ -128,7 +133,7 @@ const Index = () => {
     } catch (error) {
       console.error("Error analyzing password:", error);
       
-      // Only show toast for first error or non-mobile
+      // Only show toast for first error on mobile
       simulationMode = true;
       simulateAnalysis(exposureCount);
     } finally {
@@ -137,8 +142,6 @@ const Index = () => {
   };
 
   const simulateAnalysis = (exposureCount = 0) => {
-    // ... keep existing code (password simulation code)
-    
     const hasLower = /[a-z]/.test(password);
     const hasUpper = /[A-Z]/.test(password);
     const hasDigit = /\d/.test(password);
@@ -155,8 +158,33 @@ const Index = () => {
     const commonPasswords = ["password", "123456", "qwerty", "admin", "welcome", "password123"];
     const compromised = commonPasswords.includes(password.toLowerCase());
     
+    // Determine strength text based on entropy
+    let strengthText = "Very Weak";
+    let score = 0;
+    
+    if (entropy > 100) {
+      strengthText = "Very Strong";
+      score = 4;
+    } else if (entropy > 80) {
+      strengthText = "Strong";
+      score = 3;
+    } else if (entropy > 60) {
+      strengthText = "Moderate";
+      score = 2;
+    } else if (entropy > 40) {
+      strengthText = "Weak";
+      score = 1;
+    }
+    
+    // Generate security tips
+    const securityTips = [];
+    if (!hasUpper) securityTips.push("Add uppercase letters for better security");
+    if (!hasLower) securityTips.push("Add lowercase letters for better security");
+    if (!hasDigit) securityTips.push("Add numbers to increase password strength");
+    if (!hasSpecial) securityTips.push("Add special characters like !@#$ to significantly improve security");
+    if (password.length < 8) securityTips.push("Use at least 8 characters in your password");
+    
     const getCrackTime = (ent: number) => {
-      // ... keep existing code (crack time calculation)
       const times: Record<string, string> = {};
       const speeds = {
         "Online (1k guesses/sec)": 1e3,
@@ -189,7 +217,6 @@ const Index = () => {
     };
     
     const generateStrongPassword = (length = 16) => {
-      // ... keep existing code (password generation)
       const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+~`|}{[]:;?><,./-=";
       return Array(length).fill(0).map(() => chars.charAt(Math.floor(Math.random() * chars.length))).join('');
     };
@@ -204,13 +231,15 @@ const Index = () => {
         generateStrongPassword()
       ],
       compromised: compromised,
-      exposureCount: exposureCount
+      exposureCount: exposureCount,
+      strengthText: strengthText,
+      score: score,
+      securityTips: securityTips
     };
     
     setPasswordData(simData);
   };
 
-  // ... keep existing code (tab handling, animation variants, etc.)
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     if (isMobile) {
@@ -281,7 +310,6 @@ const Index = () => {
         
         <AnimatePresence>
           {isMobile && mobileMenuOpen && (
-            // ... keep existing code (mobile menu)
             <motion.div 
               className="fixed inset-0 z-40 bg-background/95 backdrop-blur-sm flex flex-col items-center justify-center"
               variants={mobileMenuVariants}
@@ -339,13 +367,14 @@ const Index = () => {
                     <StrengthMeter 
                       entropy={passwordData.entropy} 
                       compromised={passwordData.compromised}
-                      exposureCount={passwordData.exposureCount} 
+                      exposureCount={passwordData.exposureCount}
+                      strengthText={passwordData.strengthText}
+                      score={passwordData.score}
                     />
                   )}
                 </Card>
                 
                 {passwordData && (
-                  // ... keep existing code (results display)
                   <motion.div
                     variants={containerVariants}
                     initial="hidden"
@@ -360,6 +389,7 @@ const Index = () => {
                       <SuggestionsCard
                         hardened={passwordData.hardened}
                         suggestions={passwordData.suggestions}
+                        securityTips={passwordData.securityTips}
                       />
                     </motion.div>
                   </motion.div>
@@ -407,7 +437,9 @@ const Index = () => {
                   <StrengthMeter 
                     entropy={passwordData.entropy} 
                     compromised={passwordData.compromised}
-                    exposureCount={passwordData.exposureCount} 
+                    exposureCount={passwordData.exposureCount}
+                    strengthText={passwordData.strengthText}
+                    score={passwordData.score}
                   />
                 )}
               </Card>
@@ -427,6 +459,7 @@ const Index = () => {
                     <SuggestionsCard
                       hardened={passwordData.hardened}
                       suggestions={passwordData.suggestions}
+                      securityTips={passwordData.securityTips}
                     />
                   </motion.div>
                 </motion.div>
