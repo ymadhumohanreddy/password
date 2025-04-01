@@ -87,7 +87,7 @@ const PasswordInput = ({ password, setPassword, onAnalyze, isLoading }: Password
         >
           {isLoading ? (
             <>
-              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent"></div>
+              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
               Analyzing...
             </>
           ) : (

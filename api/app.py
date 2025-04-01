@@ -13,7 +13,7 @@ import json
 # Add these new imports for the enhanced password analyzer
 try:
     import torch
-    from transformers import AutoModelForSequenceClassification, AutoTokenizer
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer, GPT2LMHeadModel, GPT2Tokenizer
     import zxcvbn
     ENHANCED_MODE = True
 except ImportError:
@@ -44,10 +44,80 @@ if ENHANCED_MODE:
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = AutoModelForSequenceClassification.from_pretrained(model_name)
         model.eval()
-        print("CodeBERT model loaded successfully.")
+        
+        # Load GPT-2 model for security analysis
+        gpt2_model_name = "gpt2"  # Using the smallest GPT-2 model
+        gpt2_tokenizer = GPT2Tokenizer.from_pretrained(gpt2_model_name)
+        gpt2_model = GPT2LMHeadModel.from_pretrained(gpt2_model_name)
+        gpt2_model.eval()
+        
+        print("Models loaded successfully.")
     except Exception as e:
-        print(f"Error loading CodeBERT model: {e}")
+        print(f"Error loading models: {e}")
         ENHANCED_MODE = False
+
+# Generate security analysis using GPT-2
+def generate_security_analysis(password):
+    if not ENHANCED_MODE:
+        return ["Enable enhanced mode for detailed security analysis"]
+    
+    # Define password patterns for analysis
+    patterns = {
+        "sequential": any(str(i) + str(i+1) in password for i in range(0, 9)),
+        "repeated": any(c * 3 in password for c in password),
+        "common_words": any(word in password.lower() for word in ["password", "admin", "user", "login", "welcome"]),
+        "mixed_case": any(c.isupper() for c in password) and any(c.islower() for c in password),
+        "digits": any(c.isdigit() for c in password),
+        "special": any(c in string.punctuation for c in password),
+    }
+    
+    # Generate prompt for GPT-2
+    prompt = "Password security analysis:\n"
+    
+    # Use zxcvbn for initial analysis
+    zxcvbn_result = zxcvbn.zxcvbn(password)
+    
+    # Construct detailed analysis
+    analysis = []
+    
+    # Add basic feedback from zxcvbn
+    if zxcvbn_result["feedback"]["warning"]:
+        analysis.append(zxcvbn_result["feedback"]["warning"])
+    
+    # Generate specific feedback based on patterns
+    if patterns["sequential"]:
+        analysis.append("Your password contains sequential numbers, which are easy to guess.")
+    
+    if patterns["repeated"]:
+        analysis.append("Your password contains repeated characters, which weaken security.")
+    
+    if patterns["common_words"]:
+        analysis.append("Your password contains common words that appear in dictionaries used by hackers.")
+    
+    if not patterns["mixed_case"]:
+        analysis.append("Using both upper and lowercase letters would strengthen your password.")
+    
+    if not patterns["digits"]:
+        analysis.append("Adding numbers would improve your password's strength.")
+    
+    if not patterns["special"]:
+        analysis.append("Special characters (!@#$%^&*) would significantly enhance your password security.")
+    
+    # Length-based advice
+    if len(password) < 8:
+        analysis.append("Your password is too short. Use at least 8 characters for better security.")
+    elif len(password) < 12:
+        analysis.append("Consider using a longer password (12+ characters) for improved security.")
+    
+    # Add entropy-based feedback
+    entropy = zxcvbn_result["guesses_log10"] * 3.32  # Convert to bits
+    if entropy < 40:
+        analysis.append(f"Your password has low entropy ({entropy:.2f} bits), making it vulnerable to brute force attacks.")
+    elif entropy < 60:
+        analysis.append(f"Your password has moderate entropy ({entropy:.2f} bits). Adding complexity would improve security.")
+    
+    # Return the analysis points
+    return analysis
 
 # Enhanced password analysis using CodeBERT and zxcvbn
 def enhanced_analyze_password(password):
@@ -85,6 +155,9 @@ def enhanced_analyze_password(password):
     entropy_score = zxcvbn_result["score"] * 25
     entropy = entropy_score if entropy_score > 0 else calculate_entropy(password)
     
+    # Generate security analysis
+    security_analysis = generate_security_analysis(password)
+    
     return {
         "entropy": entropy,
         "crackTimes": crack_times,
@@ -92,7 +165,8 @@ def enhanced_analyze_password(password):
         "strengthText": predicted_strength,
         "suggestions": suggestions,
         "hardened": hardened,
-        "zxcvbn_result": zxcvbn_result
+        "zxcvbn_result": zxcvbn_result,
+        "security_analysis": security_analysis
     }
 
 # Assumed password cracking speeds
@@ -185,7 +259,8 @@ def analyze_password():
         'crackTimes': crack_times,
         'hardened': hardened,
         'suggestions': suggestions,
-        'compromised': compromised
+        'compromised': compromised,
+        'security_analysis': ["Basic analysis mode active. Enable enhanced mode for detailed security analysis."]
     })
 
 # Convert user input to audio waveform and byte stream
