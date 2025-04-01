@@ -6,9 +6,17 @@ import PasswordInput from "@/components/PasswordInput";
 import StrengthMeter from "@/components/StrengthMeter";
 import CrackTimeCard from "@/components/CrackTimeCard";
 import SuggestionsCard from "@/components/SuggestionsCard";
+import SecurityAnalysisCard from "@/components/SecurityAnalysisCard";
 import DnaPasswordGenerator from "@/components/DnaPasswordGenerator";
 import EntryAnimation from "@/components/EntryAnimation";
 import GameModule from "@/components/GameModule";
+import PassphraseGenerator from "@/components/PassphraseGenerator";
+import ThemedPasswordGenerator from "@/components/ThemedPasswordGenerator";
+import SecurityAssistant from "@/components/SecurityAssistant";
+import LocalPasswordAnalyzer from "@/components/LocalPasswordAnalyzer";
+import PasswordHistory from "@/components/PasswordHistory";
+import WizardNavigation from "@/components/WizardNavigation";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,11 +26,16 @@ import {
   Lock, 
   Key, 
   Menu, 
-  X 
+  X,
+  Bot,
+  Sparkles,
+  History,
+  Cpu,
+  BarChart,
+  Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-// API endpoint for the Flask backend
 const API_ENDPOINT = "http://localhost:5000/analyze";
 
 const Index = () => {
@@ -35,24 +48,20 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("analyzer");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [hasErrorOccurred, setHasErrorOccurred] = useState(false);
+  const [isWizardMode, setIsWizardMode] = useState(true);
 
-  // Check if the password has been exposed in data breaches
   const checkPasswordExposure = async (password: string) => {
     try {
-      // Convert password to SHA-1 hash
       const encoder = new TextEncoder();
       const data = encoder.encode(password);
       const hashBuffer = await crypto.subtle.digest('SHA-1', data);
       
-      // Convert hash to hex string
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
       
-      // Use k-anonymity: send only first 5 chars of hash
       const prefix = hashHex.substring(0, 5);
       const suffix = hashHex.substring(5);
       
-      // Call the API
       const response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
       
       if (!response.ok) {
@@ -60,11 +69,9 @@ const Index = () => {
         return 0;
       }
       
-      // Process response
       const text = await response.text();
       const hashes = text.split('\r\n');
       
-      // Look for our hash suffix
       for (const hash of hashes) {
         const [hashSuffix, count] = hash.split(':');
         if (hashSuffix.toLowerCase() === suffix.toLowerCase()) {
@@ -87,10 +94,8 @@ const Index = () => {
     let simulationMode = false;
     
     try {
-      // First check for password exposure
       exposureCount = await checkPasswordExposure(password);
       
-      // Then analyze password strength
       const response = await fetch(API_ENDPOINT, {
         method: "POST",
         headers: {
@@ -105,7 +110,6 @@ const Index = () => {
       
       const data = await response.json();
       
-      // Handle both legacy and enhanced response formats
       const processedData = {
         ...data,
         exposureCount,
@@ -128,12 +132,19 @@ const Index = () => {
         });
       }
       
-      // Reset error flag since we had a successful request
       setHasErrorOccurred(false);
     } catch (error) {
       console.error("Error analyzing password:", error);
       
-      // Only show toast for first error on mobile
+      if (!hasErrorOccurred && isMobile) {
+        toast({
+          title: "Notice",
+          description: "Using local password analysis mode",
+          variant: "default",
+        });
+        setHasErrorOccurred(true);
+      }
+      
       simulationMode = true;
       simulateAnalysis(exposureCount);
     } finally {
@@ -158,7 +169,6 @@ const Index = () => {
     const commonPasswords = ["password", "123456", "qwerty", "admin", "welcome", "password123"];
     const compromised = commonPasswords.includes(password.toLowerCase());
     
-    // Determine strength text based on entropy
     let strengthText = "Very Weak";
     let score = 0;
     
@@ -176,13 +186,19 @@ const Index = () => {
       score = 1;
     }
     
-    // Generate security tips
-    const securityTips = [];
-    if (!hasUpper) securityTips.push("Add uppercase letters for better security");
-    if (!hasLower) securityTips.push("Add lowercase letters for better security");
-    if (!hasDigit) securityTips.push("Add numbers to increase password strength");
-    if (!hasSpecial) securityTips.push("Add special characters like !@#$ to significantly improve security");
-    if (password.length < 8) securityTips.push("Use at least 8 characters in your password");
+    const securityAnalysis = [];
+    if (!hasUpper) securityAnalysis.push("Using uppercase letters would significantly improve your password security");
+    if (!hasLower) securityAnalysis.push("Including lowercase letters would help strengthen your password");
+    if (!hasDigit) securityAnalysis.push("Adding numbers would make your password harder to crack");
+    if (!hasSpecial) securityAnalysis.push("Special characters (!@#$%) would greatly enhance your password strength");
+    if (password.length < 8) securityAnalysis.push("Your password is too short - use at least 8 characters");
+    if (commonPasswords.includes(password.toLowerCase())) securityAnalysis.push("This is a commonly used password and very easy to guess");
+    
+    const securityTips = [
+      "Use a combination of letters, numbers, and special characters",
+      "Aim for at least 12 characters in your password",
+      "Avoid using personal information in your password"
+    ];
     
     const getCrackTime = (ent: number) => {
       const times: Record<string, string> = {};
@@ -234,7 +250,8 @@ const Index = () => {
       exposureCount: exposureCount,
       strengthText: strengthText,
       score: score,
-      securityTips: securityTips
+      securityTips: securityTips,
+      security_analysis: securityAnalysis
     };
     
     setPasswordData(simData);
@@ -288,6 +305,94 @@ const Index = () => {
     }
   };
 
+  useEffect(() => {
+    if (passwordData && isWizardMode && activeTab === "analyzer") {
+      setActiveTab("suggestions");
+    }
+  }, [passwordData, isWizardMode, activeTab]);
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case "analyzer":
+        return (
+          <div className="space-y-6">
+            <Card className="p-6 mb-8 card-gradient">
+              <PasswordInput
+                password={password}
+                setPassword={setPassword}
+                onAnalyze={analyzePassword}
+                isLoading={isLoading}
+              />
+              
+              {passwordData && (
+                <StrengthMeter 
+                  entropy={passwordData.entropy} 
+                  compromised={passwordData.compromised}
+                  exposureCount={passwordData.exposureCount}
+                  strengthText={passwordData.strengthText}
+                  score={passwordData.score}
+                />
+              )}
+            </Card>
+            
+            {passwordData && !isWizardMode && (
+              <motion.div
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                className="grid grid-cols-1 gap-6"
+              >
+                <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <SecurityAnalysisCard 
+                    securityAnalysis={passwordData.security_analysis || []} 
+                  />
+                  
+                  <CrackTimeCard crackTimes={passwordData.crackTimes} />
+                </motion.div>
+              </motion.div>
+            )}
+          </div>
+        );
+      case "suggestions":
+        return passwordData ? (
+          <SuggestionsCard
+            hardened={passwordData.hardened}
+            suggestions={passwordData.suggestions}
+            securityTips={passwordData.securityTips}
+          />
+        ) : (
+          <Card className="p-6">
+            <CardContent className="pt-6 text-center">
+              <p>Please analyze a password first to see suggestions.</p>
+              <Button 
+                onClick={() => setActiveTab("analyzer")} 
+                className="mt-4"
+                variant="secondary"
+              >
+                Go to Password Analyzer
+              </Button>
+            </CardContent>
+          </Card>
+        );
+      case "passphrase":
+        return <PassphraseGenerator />;
+      case "themed":
+        return <ThemedPasswordGenerator />;
+      case "assistant":
+        return <SecurityAssistant />;
+      case "local":
+        return <LocalPasswordAnalyzer />;
+      case "history":
+        return <PasswordHistory />;
+      case "dna":
+        return <DnaPasswordGenerator />;
+      case "game":
+        return <GameModule />;
+      default:
+        return <div>Select a tool to get started</div>;
+    }
+  };
+
   return (
     <>
       {showingAnimation && (
@@ -317,7 +422,7 @@ const Index = () => {
               animate="open"
               exit="closed"
             >
-              <div className="flex flex-col items-center space-y-8 w-full max-w-xs">
+              <div className="flex flex-col items-center space-y-4 w-full max-w-xs">
                 <Button 
                   variant={activeTab === "analyzer" ? "default" : "outline"} 
                   size="lg"
@@ -325,6 +430,51 @@ const Index = () => {
                   onClick={() => handleTabChange("analyzer")}
                 >
                   <Lock className="mr-3 h-5 w-5" /> Password Analyzer
+                </Button>
+                
+                <Button 
+                  variant={activeTab === "passphrase" ? "default" : "outline"} 
+                  size="lg"
+                  className="w-full flex items-center justify-start text-lg"
+                  onClick={() => handleTabChange("passphrase")}
+                >
+                  <Sparkles className="mr-3 h-5 w-5" /> AI Passphrases
+                </Button>
+                
+                <Button 
+                  variant={activeTab === "themed" ? "default" : "outline"} 
+                  size="lg"
+                  className="w-full flex items-center justify-start text-lg"
+                  onClick={() => handleTabChange("themed")}
+                >
+                  <BarChart className="mr-3 h-5 w-5" /> Themed Generator
+                </Button>
+                
+                <Button 
+                  variant={activeTab === "assistant" ? "default" : "outline"} 
+                  size="lg"
+                  className="w-full flex items-center justify-start text-lg"
+                  onClick={() => handleTabChange("assistant")}
+                >
+                  <Bot className="mr-3 h-5 w-5" /> Security Assistant
+                </Button>
+                
+                <Button 
+                  variant={activeTab === "local" ? "default" : "outline"} 
+                  size="lg"
+                  className="w-full flex items-center justify-start text-lg"
+                  onClick={() => handleTabChange("local")}
+                >
+                  <Cpu className="mr-3 h-5 w-5" /> Local Analyzer
+                </Button>
+                
+                <Button 
+                  variant={activeTab === "history" ? "default" : "outline"} 
+                  size="lg"
+                  className="w-full flex items-center justify-start text-lg"
+                  onClick={() => handleTabChange("history")}
+                >
+                  <History className="mr-3 h-5 w-5" /> Password History
                 </Button>
                 
                 <Button 
@@ -344,6 +494,18 @@ const Index = () => {
                 >
                   <Gamepad2 className="mr-3 h-5 w-5" /> Password Game
                 </Button>
+                
+                <Separator className="my-2" />
+                
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full flex items-center justify-start text-lg"
+                  onClick={() => setIsWizardMode(!isWizardMode)}
+                >
+                  <Settings className="mr-3 h-5 w-5" /> 
+                  {isWizardMode ? "Switch to Tabs Mode" : "Switch to Wizard Mode"}
+                </Button>
               </div>
             </motion.div>
           )}
@@ -351,59 +513,31 @@ const Index = () => {
         
         <HeroSection />
         
-        {isMobile ? (
+        {!isMobile && (
+          <div className="flex justify-end mb-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsWizardMode(!isWizardMode)}
+              className="flex items-center gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              {isWizardMode ? "Switch to Tabs Mode" : "Switch to Wizard Mode"}
+            </Button>
+          </div>
+        )}
+        
+        {isWizardMode ? (
           <div className="w-full mt-6">
-            {activeTab === "analyzer" && (
-              <div className="space-y-6">
-                <Card className="p-6 mb-8 card-gradient">
-                  <PasswordInput
-                    password={password}
-                    setPassword={setPassword}
-                    onAnalyze={analyzePassword}
-                    isLoading={isLoading}
-                  />
-                  
-                  {passwordData && (
-                    <StrengthMeter 
-                      entropy={passwordData.entropy} 
-                      compromised={passwordData.compromised}
-                      exposureCount={passwordData.exposureCount}
-                      strengthText={passwordData.strengthText}
-                      score={passwordData.score}
-                    />
-                  )}
-                </Card>
-                
-                {passwordData && (
-                  <motion.div
-                    variants={containerVariants}
-                    initial="hidden"
-                    animate="visible"
-                    className="grid grid-cols-1 gap-6"
-                  >
-                    <motion.div variants={itemVariants}>
-                      <CrackTimeCard crackTimes={passwordData.crackTimes} />
-                    </motion.div>
-                    
-                    <motion.div variants={itemVariants}>
-                      <SuggestionsCard
-                        hardened={passwordData.hardened}
-                        suggestions={passwordData.suggestions}
-                        securityTips={passwordData.securityTips}
-                      />
-                    </motion.div>
-                  </motion.div>
-                )}
-              </div>
-            )}
-            
-            {activeTab === "dna" && (
-              <DnaPasswordGenerator />
-            )}
-            
-            {activeTab === "game" && (
-              <GameModule />
-            )}
+            <WizardNavigation 
+              activeTab={activeTab} 
+              onTabChange={handleTabChange}
+              hasPasswordData={!!passwordData}
+            />
+            {renderContent()}
+          </div>
+        ) : isMobile ? (
+          <div className="w-full mt-6">
+            {renderContent()}
           </div>
         ) : (
           <Tabs 
@@ -412,66 +546,35 @@ const Index = () => {
             onValueChange={handleTabChange}
             className="w-full"
           >
-            <TabsList className="grid w-full grid-cols-3 mb-6">
+            <TabsList className="grid w-full grid-cols-8 mb-6 gap-1">
               <TabsTrigger value="analyzer" className="flex items-center">
-                <Lock className="mr-2 h-4 w-4" /> Password Analyzer
+                <Lock className="mr-2 h-4 w-4" /> Analyzer
+              </TabsTrigger>
+              <TabsTrigger value="passphrase" className="flex items-center">
+                <Sparkles className="mr-2 h-4 w-4" /> Passphrases
+              </TabsTrigger>
+              <TabsTrigger value="themed" className="flex items-center">
+                <BarChart className="mr-2 h-4 w-4" /> Themed
+              </TabsTrigger>
+              <TabsTrigger value="assistant" className="flex items-center">
+                <Bot className="mr-2 h-4 w-4" /> Assistant
+              </TabsTrigger>
+              <TabsTrigger value="local" className="flex items-center">
+                <Cpu className="mr-2 h-4 w-4" /> Local
+              </TabsTrigger>
+              <TabsTrigger value="history" className="flex items-center">
+                <History className="mr-2 h-4 w-4" /> History
               </TabsTrigger>
               <TabsTrigger value="dna" className="flex items-center">
-                <Key className="mr-2 h-4 w-4" /> DNA Password
+                <Key className="mr-2 h-4 w-4" /> DNA
               </TabsTrigger>
               <TabsTrigger value="game" className="flex items-center">
-                <Gamepad2 className="mr-2 h-4 w-4" /> Password Game
+                <Gamepad2 className="mr-2 h-4 w-4" /> Game
               </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="analyzer" className="space-y-6">
-              <Card className="p-6 mb-8 card-gradient">
-                <PasswordInput
-                  password={password}
-                  setPassword={setPassword}
-                  onAnalyze={analyzePassword}
-                  isLoading={isLoading}
-                />
-                
-                {passwordData && (
-                  <StrengthMeter 
-                    entropy={passwordData.entropy} 
-                    compromised={passwordData.compromised}
-                    exposureCount={passwordData.exposureCount}
-                    strengthText={passwordData.strengthText}
-                    score={passwordData.score}
-                  />
-                )}
-              </Card>
-              
-              {passwordData && (
-                <motion.div
-                  variants={containerVariants}
-                  initial="hidden"
-                  animate="visible"
-                  className="grid grid-cols-1 md:grid-cols-2 gap-6"
-                >
-                  <motion.div variants={itemVariants} className="md:col-span-2">
-                    <CrackTimeCard crackTimes={passwordData.crackTimes} />
-                  </motion.div>
-                  
-                  <motion.div variants={itemVariants} className="md:col-span-2">
-                    <SuggestionsCard
-                      hardened={passwordData.hardened}
-                      suggestions={passwordData.suggestions}
-                      securityTips={passwordData.securityTips}
-                    />
-                  </motion.div>
-                </motion.div>
-              )}
-            </TabsContent>
-            
-            <TabsContent value="dna">
-              <DnaPasswordGenerator />
-            </TabsContent>
-            
-            <TabsContent value="game">
-              <GameModule />
+            <TabsContent value={activeTab}>
+              {renderContent()}
             </TabsContent>
           </Tabs>
         )}
