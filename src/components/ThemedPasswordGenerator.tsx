@@ -1,131 +1,49 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Copy, CheckCircle, Sparkles, Music, Rocket, Castle, Film } from "lucide-react";
-import { toast } from "sonner";
-
-const THEMES = [
-  { id: "music", name: "Music & Lyrics", icon: <Music className="w-4 h-4" /> },
-  { id: "scifi", name: "Sci-Fi References", icon: <Rocket className="w-4 h-4" /> },
-  { id: "fantasy", name: "Fantasy Characters", icon: <Castle className="w-4 h-4" /> },
-  { id: "movies", name: "Movie Quotes", icon: <Film className="w-4 h-4" /> },
-];
+import { Copy, Check, RefreshCw, BarChart, Wand } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useGPT2 } from "@/utils/gpt2Helper";
 
 const ThemedPasswordGenerator = () => {
-  const [selectedTheme, setSelectedTheme] = useState("music");
-  const [randomness, setRandomness] = useState(2); // 1-3 scale
-  const [includeNumbers, setIncludeNumbers] = useState(true);
-  const [includeSymbols, setIncludeSymbols] = useState(true);
-  const [password, setPassword] = useState("");
-  const [securityScore, setSecurityScore] = useState(0);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [themeInsight, setThemeInsight] = useState("");
+  const { toast } = useToast();
+  const [theme, setTheme] = useState<string>("music");
+  const [length, setLength] = useState<number>(12);
+  const [temperature, setTemperature] = useState<number>(0.7);
+  const [password, setPassword] = useState<string>("");
+  const [copied, setCopied] = useState<boolean>(false);
+  
+  // Use the GPT-2 helper
+  const { generateText, isLoading } = useGPT2();
 
-  const generatePassword = () => {
-    setIsGenerating(true);
+  const handleGeneratePassword = async () => {
+    // Generate the password using GPT-2 with the selected theme
+    const generatedPassword = await generateText(`Generate a password with ${theme} theme`, { 
+      maxLength: length,
+      temperature: temperature,
+      theme: theme
+    });
     
-    // Simulate API call
-    setTimeout(() => {
-      // Theme-specific data
-      const themeData: Record<string, string[]> = {
-        music: [
-          "BohemianRhapsody", "StairwayToHeaven", "ImagineAllPeople", 
-          "SmellsLikeTeenSpirit", "BillyJean", "LikeARollingStone"
-        ],
-        scifi: [
-          "UseTheForce", "BeamMeUp", "OpenThePodBay", 
-          "IAmYourFather", "TheresNoSpoon", "ToInfinityAndBeyond"
-        ],
-        fantasy: [
-          "YouShallNotPass", "WinterIsComing", "MyPrecious", 
-          "ExpectoPatronum", "AslanIsOnTheMove", "ForNarnia"
-        ],
-        movies: [
-          "HereIsLookinAtYou", "IllBeBack", "MayTheForceBeWithYou",
-          "HoustonWeHaveAProblem", "ShowMeTheMoney", "LifeIsLikeABox"
-        ]
-      };
-      
-      // Select a base password from the theme
-      const themeOptions = themeData[selectedTheme];
-      let basePassword = themeOptions[Math.floor(Math.random() * themeOptions.length)];
-      
-      // Apply randomness transformations
-      if (randomness >= 2) {
-        // Replace some characters with similar looking numbers/symbols (l33t speak)
-        basePassword = basePassword
-          .replace(/a/g, '@')
-          .replace(/e/g, '3')
-          .replace(/i/g, '1')
-          .replace(/o/g, '0')
-          .replace(/s/g, '$');
-      }
-      
-      // Add numbers if requested
-      if (includeNumbers) {
-        basePassword += Math.floor(Math.random() * 100);
-      }
-      
-      // Add symbols if requested
-      if (includeSymbols) {
-        const symbols = "!@#$%^&*";
-        basePassword += symbols.charAt(Math.floor(Math.random() * symbols.length));
-      }
-      
-      // For highest randomness, shuffle the string
-      if (randomness === 3) {
-        basePassword = basePassword.split('').sort(() => 0.5 - Math.random()).join('');
-      }
-      
-      // Calculate a security score (0-100)
-      let score = 0;
-      score += basePassword.length * 4; // Length bonus
-      score += includeNumbers ? 20 : 0;
-      score += includeSymbols ? 20 : 0;
-      score += (randomness - 1) * 15; // Randomness bonus
-      
-      // Cap at 100
-      score = Math.min(score, 100);
-      
-      // Generate theme-specific security insight
-      let insight = "";
-      if (score < 40) {
-        insight = `This ${getThemeName(selectedTheme).toLowerCase()} themed password is recognizable and might be vulnerable to targeted attacks.`;
-      } else if (score < 70) {
-        insight = `Your ${getThemeName(selectedTheme).toLowerCase()} themed password has decent security but could be strengthened with more randomization.`;
-      } else {
-        insight = `This highly secure ${getThemeName(selectedTheme).toLowerCase()} themed password combines cultural references with strong randomization.`;
-      }
-      
-      setPassword(basePassword);
-      setSecurityScore(score);
-      setThemeInsight(insight);
-      setIsGenerating(false);
-    }, 1000);
+    setPassword(generatedPassword);
   };
-  
-  const getThemeName = (themeId: string): string => {
-    const theme = THEMES.find(t => t.id === themeId);
-    return theme ? theme.name : "";
-  };
-  
-  const getScoreColor = () => {
-    if (securityScore < 40) return "text-red-500";
-    if (securityScore < 70) return "text-yellow-500";
-    return "text-green-500";
-  };
-  
+
   const copyToClipboard = () => {
     navigator.clipboard.writeText(password);
     setCopied(true);
-    toast.success("Password copied to clipboard");
+    toast({
+      title: "Copied!",
+      description: "Password copied to clipboard",
+    });
     
     setTimeout(() => {
       setCopied(false);
@@ -134,120 +52,104 @@ const ThemedPasswordGenerator = () => {
 
   return (
     <Card className="card-gradient card-hover">
-      <CardHeader>
-        <CardTitle className="flex items-center text-xl">
-          <Sparkles className="mr-2" size={20} />
-          Themed Password Generator
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg flex items-center">
+          <BarChart className="mr-2" size={18} />
+          GPT-2 Themed Password Generator
         </CardTitle>
-        <CardDescription>
-          Create secure passwords with creative themes
-        </CardDescription>
+        <p className="text-sm text-muted-foreground">
+          Generate passwords inspired by specific themes using GPT-2 AI technology
+        </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Label className="text-sm">Select Theme:</Label>
-        <ScrollArea className="h-[150px] rounded-md border p-2">
-          <RadioGroup value={selectedTheme} onValueChange={setSelectedTheme}>
-            {THEMES.map((theme) => (
-              <div key={theme.id} className="flex items-center space-x-2 py-2">
-                <RadioGroupItem value={theme.id} id={theme.id} />
-                <Label 
-                  htmlFor={theme.id} 
-                  className="flex items-center cursor-pointer py-1 px-2 rounded hover:bg-muted/50 w-full"
-                >
-                  {theme.icon}
-                  <span className="ml-2">{theme.name}</span>
-                </Label>
-              </div>
-            ))}
-          </RadioGroup>
-        </ScrollArea>
-        
-        <div>
-          <Label className="text-sm flex items-center mb-2">
-            <Sparkles className="w-4 h-4 mr-1" />
-            Randomness Level: {randomness === 1 ? 'Low' : randomness === 2 ? 'Medium' : 'High'}
-          </Label>
+        <div className="space-y-2">
+          <Label htmlFor="theme">Password Theme</Label>
+          <Select 
+            value={theme} 
+            onValueChange={setTheme}
+          >
+            <SelectTrigger id="theme">
+              <SelectValue placeholder="Select theme" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="music">Music</SelectItem>
+              <SelectItem value="scifi">Science Fiction</SelectItem>
+              <SelectItem value="fantasy">Fantasy</SelectItem>
+              <SelectItem value="movies">Movies</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex justify-between">
+            <Label htmlFor="length">Length (approx.): {length}</Label>
+          </div>
           <Slider 
-            value={[randomness]} 
-            min={1} 
-            max={3} 
+            id="length"
+            min={8} 
+            max={32} 
             step={1} 
-            onValueChange={(value) => setRandomness(value[0])}
+            value={[length]} 
+            onValueChange={(value) => setLength(value[0])}
           />
         </div>
-        
-        <div className="flex justify-between">
-          <div className="flex items-center space-x-2">
-            <Switch 
-              id="include-numbers" 
-              checked={includeNumbers}
-              onCheckedChange={setIncludeNumbers}
-            />
-            <Label htmlFor="include-numbers" className="text-sm">Include Numbers</Label>
+
+        <div className="space-y-2">
+          <div className="flex justify-between">
+            <Label htmlFor="complexity">Creativity: {temperature.toFixed(1)}</Label>
           </div>
-          
-          <div className="flex items-center space-x-2">
-            <Switch 
-              id="include-symbols" 
-              checked={includeSymbols}
-              onCheckedChange={setIncludeSymbols}
-            />
-            <Label htmlFor="include-symbols" className="text-sm">Include Symbols</Label>
-          </div>
+          <Slider 
+            id="complexity"
+            min={0.1} 
+            max={1.0} 
+            step={0.1} 
+            value={[temperature]} 
+            onValueChange={(value) => setTemperature(value[0])}
+          />
+          <p className="text-xs text-muted-foreground">
+            Higher values create more creative, theme-specific passwords.
+          </p>
         </div>
-        
+
         <Button 
-          onClick={generatePassword} 
-          className="w-full" 
-          disabled={isGenerating}
+          onClick={handleGeneratePassword} 
+          className="w-full flex items-center justify-center"
+          disabled={isLoading}
         >
-          {isGenerating ? (
+          {isLoading ? (
             <>
-              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent"></div>
+              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
               Generating...
             </>
           ) : (
             <>
-              <Sparkles className="mr-2" size={16} />
-              Generate Themed Password
+              <Wand className="mr-2 h-4 w-4" />
+              Generate with GPT-2
             </>
           )}
         </Button>
-        
+
         {password && (
-          <div className="space-y-3 mt-2">
-            <div className="relative">
+          <div className="mt-4">
+            <Label htmlFor="password">Generated Themed Password</Label>
+            <div className="flex mt-1.5">
               <Input 
+                id="password"
                 value={password} 
                 readOnly 
-                className="pr-10 font-mono bg-secondary/30 py-5 text-lg"
+                className="font-mono"
               />
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={copyToClipboard}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8"
+              <Button 
+                onClick={copyToClipboard} 
+                variant="outline" 
+                size="icon" 
+                className="ml-2"
               >
-                {copied ? <CheckCircle size={16} className="text-green-500" /> : <Copy size={16} />}
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
-            
-            <div className="flex justify-between items-center">
-              <span className="text-sm">Theme Security Score:</span>
-              <span className={`font-bold ${getScoreColor()}`}>
-                {securityScore}/100
-              </span>
-            </div>
-            
-            <div className="w-full bg-secondary/30 h-2 rounded-full overflow-hidden">
-              <div 
-                className={securityScore < 40 ? "bg-red-500" : securityScore < 70 ? "bg-yellow-500" : "bg-green-500"} 
-                style={{ width: `${securityScore}%`, height: '100%' }}
-              ></div>
-            </div>
-            
-            <p className="text-sm text-muted-foreground">
-              {themeInsight}
+            <p className="text-xs text-muted-foreground mt-2">
+              This {theme}-themed password was generated using GPT-2 AI for enhanced security with thematic elements.
             </p>
           </div>
         )}

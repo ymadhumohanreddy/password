@@ -4,12 +4,9 @@ import {
   ChevronLeft, 
   ChevronRight, 
   Lock, 
-  Sparkles, 
-  BarChart, 
   Bot, 
   Cpu, 
   History, 
-  Key, 
   Gamepad2,
   HelpCircle
 } from "lucide-react";
@@ -40,25 +37,6 @@ const WizardNavigation = ({ activeTab, onTabChange, hasPasswordData }: WizardNav
       description: "Analyze your password's strength and vulnerabilities"
     },
     {
-      id: "suggestions",
-      title: "Password Suggestions",
-      icon: <Sparkles className="h-5 w-5" />,
-      description: "Get AI-generated secure password suggestions",
-      showOnlyAfterAnalysis: true
-    },
-    {
-      id: "passphrase",
-      title: "AI Passphrases",
-      icon: <Sparkles className="h-5 w-5" />,
-      description: "Generate memorable passphrases using advanced AI"
-    },
-    {
-      id: "themed",
-      title: "Themed Generator",
-      icon: <BarChart className="h-5 w-5" />,
-      description: "Create passwords based on specific themes"
-    },
-    {
       id: "assistant",
       title: "Security Assistant",
       icon: <Bot className="h-5 w-5" />,
@@ -77,12 +55,6 @@ const WizardNavigation = ({ activeTab, onTabChange, hasPasswordData }: WizardNav
       description: "View your password analysis history"
     },
     {
-      id: "dna",
-      title: "DNA Password",
-      icon: <Key className="h-5 w-5" />,
-      description: "Generate secure passwords based on your personal information"
-    },
-    {
       id: "game",
       title: "Password Game",
       icon: <Gamepad2 className="h-5 w-5" />,
@@ -90,29 +62,23 @@ const WizardNavigation = ({ activeTab, onTabChange, hasPasswordData }: WizardNav
     }
   ];
 
-  // Keep a consistent list of all steps regardless of password data state
-  const allSteps = [...wizardSteps];
-  
-  // For display and progress bar, filter steps that should be shown
-  const visibleSteps = wizardSteps.filter(step => 
+  const filteredSteps = wizardSteps.filter(step => 
     !step.showOnlyAfterAnalysis || (step.showOnlyAfterAnalysis && hasPasswordData)
   );
   
-  // Find current step in the COMPLETE list, not filtered list
-  const currentStepIndex = allSteps.findIndex(step => step.id === activeTab);
+  const currentStepIndex = filteredSteps.findIndex(step => step.id === activeTab);
+  const isFirstStep = currentStepIndex === 0;
+  const isLastStep = currentStepIndex === filteredSteps.length - 1;
   
-  // Navigation should work with the complete list
   const goToPrevStep = () => {
-    if (currentStepIndex > 0) {
-      // Always go to previous step in the full list
-      onTabChange(allSteps[currentStepIndex - 1].id);
+    if (!isFirstStep) {
+      onTabChange(filteredSteps[currentStepIndex - 1].id);
     }
   };
   
   const goToNextStep = () => {
-    if (currentStepIndex < allSteps.length - 1) {
-      // Always go to next step in the full list
-      onTabChange(allSteps[currentStepIndex + 1].id);
+    if (!isLastStep) {
+      onTabChange(filteredSteps[currentStepIndex + 1].id);
     } else {
       toast({
         title: "Congratulations!",
@@ -121,12 +87,13 @@ const WizardNavigation = ({ activeTab, onTabChange, hasPasswordData }: WizardNav
     }
   };
   
-  // Get current step info for display purposes
-  const currentStep = allSteps[currentStepIndex];
-  
-  // Calculate if first or last for button disabling
-  const isFirstStep = currentStepIndex === 0;
-  const isLastStep = currentStepIndex === allSteps.length - 1;
+  // Find the current step from wizard steps or handle generator buttons separately
+  const currentStep = filteredSteps[currentStepIndex] || {
+    id: activeTab,
+    title: activeTab.charAt(0).toUpperCase() + activeTab.slice(1),
+    icon: <Lock className="h-5 w-5" />,
+    description: ""
+  };
   
   return (
     <div className="mb-8 space-y-4">
@@ -156,9 +123,7 @@ const WizardNavigation = ({ activeTab, onTabChange, hasPasswordData }: WizardNav
         <motion.div 
           className="bg-primary h-2 rounded-full"
           initial={{ width: "0%" }}
-          animate={{ 
-            width: `${((visibleSteps.findIndex(step => step.id === activeTab) + 1) / visibleSteps.length) * 100}%` 
-          }}
+          animate={{ width: `${((currentStepIndex + 1) / filteredSteps.length) * 100}%` }}
           transition={{ duration: 0.5 }}
         />
       </div>
@@ -169,7 +134,7 @@ const WizardNavigation = ({ activeTab, onTabChange, hasPasswordData }: WizardNav
         <Button
           variant="outline"
           onClick={goToPrevStep}
-          disabled={isFirstStep}
+          disabled={isFirstStep || !filteredSteps.some(step => step.id === activeTab)}
           className="flex items-center"
         >
           <ChevronLeft className="mr-2 h-4 w-4" /> Previous
@@ -177,11 +142,11 @@ const WizardNavigation = ({ activeTab, onTabChange, hasPasswordData }: WizardNav
         
         <div className="flex-1 flex justify-center">
           <div className="flex space-x-1">
-            {visibleSteps.map((step) => (
+            {filteredSteps.map((step, index) => (
               <button
                 key={step.id}
                 className={`w-2 h-2 rounded-full ${
-                  step.id === activeTab ? "bg-primary" : "bg-muted-foreground/30"
+                  activeTab === step.id ? "bg-primary" : "bg-muted-foreground/30"
                 }`}
                 onClick={() => onTabChange(step.id)}
                 aria-label={`Go to ${step.title}`}
@@ -192,6 +157,7 @@ const WizardNavigation = ({ activeTab, onTabChange, hasPasswordData }: WizardNav
         
         <Button
           onClick={goToNextStep}
+          disabled={!filteredSteps.some(step => step.id === activeTab)}
           className="flex items-center"
         >
           {isLastStep ? "Complete" : "Next"} <ChevronRight className="ml-2 h-4 w-4" />

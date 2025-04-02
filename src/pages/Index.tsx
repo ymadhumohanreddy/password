@@ -48,7 +48,7 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("analyzer");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [hasErrorOccurred, setHasErrorOccurred] = useState(false);
-  const [isWizardMode, setIsWizardMode] = useState(true);
+  const [isWizardMode, setIsWizardMode] = useState(false);
 
   const checkPasswordExposure = async (password: string) => {
     try {
@@ -305,12 +305,6 @@ const Index = () => {
     }
   };
 
-  useEffect(() => {
-    if (passwordData && isWizardMode && activeTab === "analyzer") {
-      setActiveTab("suggestions");
-    }
-  }, [passwordData, isWizardMode, activeTab]);
-
   const renderContent = () => {
     switch (activeTab) {
       case "analyzer":
@@ -335,7 +329,7 @@ const Index = () => {
               )}
             </Card>
             
-            {passwordData && !isWizardMode && (
+            {passwordData && (
               <motion.div
                 variants={containerVariants}
                 initial="hidden"
@@ -348,6 +342,14 @@ const Index = () => {
                   />
                   
                   <CrackTimeCard crackTimes={passwordData.crackTimes} />
+                </motion.div>
+
+                <motion.div variants={itemVariants}>
+                  <SuggestionsCard
+                    hardened={passwordData.hardened || ""}
+                    suggestions={passwordData.suggestions || []}
+                    securityTips={passwordData.securityTips || []}
+                  />
                 </motion.div>
               </motion.div>
             )}
@@ -384,7 +386,7 @@ const Index = () => {
         return <LocalPasswordAnalyzer />;
       case "history":
         return <PasswordHistory />;
-      case "dna":
+      case "DNA Password":
         return <DnaPasswordGenerator />;
       case "game":
         return <GameModule />;
@@ -392,6 +394,44 @@ const Index = () => {
         return <div>Select a tool to get started</div>;
     }
   };
+
+  const generatorButtons = [
+    {
+      id: "passphrase",
+      title: "GPT-2 Passphrases",
+      icon: <Sparkles className="h-5 w-5"  />,
+      description: "Generate memorable passphrases using GPT-2 AI"
+    },
+    {
+      id: "themed",
+      title: "GPT-2 Themed Generator",
+      icon: <BarChart className="h-5 w-5" />,
+      description: "Create passwords based on specific themes using AI"
+    },
+    {
+      id: "DNA Password",
+      title: "DNA Password",
+      icon: <Key className="h-5 w-5" />,
+      description: "Generate secure passwords based on your personal information"
+    },
+  ];
+
+  const renderGeneratorButtons = () => (
+    <div className="flex flex-wrap gap-2 mb-6 justify-center">
+      {generatorButtons.map((btn) => (
+        <Button
+          key={btn.id}
+          variant={activeTab === btn.id ? "default" : "outline"}
+          onClick={() => setActiveTab(btn.id)}
+          className="flex items-center gap-2"
+        >
+          {btn.icon}
+          <span className="hidden sm:inline">{btn.title}</span>
+          <span className="sm:hidden">{btn.title.split(' ').pop()}</span>
+        </Button>
+      ))}
+    </div>
+  );
 
   return (
     <>
@@ -423,6 +463,23 @@ const Index = () => {
               exit="closed"
             >
               <div className="flex flex-col items-center space-y-4 w-full max-w-xs">
+                <h3 className="text-lg font-semibold mt-4 mb-2">Password Generators</h3>
+                <div className="grid grid-cols-1 gap-2 w-full">
+                  {generatorButtons.map(btn => (
+                    <Button 
+                      key={btn.id}
+                      variant={activeTab === btn.id ? "default" : "outline"} 
+                      className="w-full flex items-center justify-start"
+                      onClick={() => handleTabChange(btn.id)}
+                    >
+                      {btn.icon} <span className="ml-3">{btn.title}</span>
+                    </Button>
+                  ))}
+                </div>
+                
+                <Separator className="my-3" />
+                <h3 className="text-lg font-semibold mb-2">Tools & Analysis</h3>
+                
                 <Button 
                   variant={activeTab === "analyzer" ? "default" : "outline"} 
                   size="lg"
@@ -430,24 +487,6 @@ const Index = () => {
                   onClick={() => handleTabChange("analyzer")}
                 >
                   <Lock className="mr-3 h-5 w-5" /> Password Analyzer
-                </Button>
-                
-                <Button 
-                  variant={activeTab === "passphrase" ? "default" : "outline"} 
-                  size="lg"
-                  className="w-full flex items-center justify-start text-lg"
-                  onClick={() => handleTabChange("passphrase")}
-                >
-                  <Sparkles className="mr-3 h-5 w-5" /> AI Passphrases
-                </Button>
-                
-                <Button 
-                  variant={activeTab === "themed" ? "default" : "outline"} 
-                  size="lg"
-                  className="w-full flex items-center justify-start text-lg"
-                  onClick={() => handleTabChange("themed")}
-                >
-                  <BarChart className="mr-3 h-5 w-5" /> Themed Generator
                 </Button>
                 
                 <Button 
@@ -475,15 +514,6 @@ const Index = () => {
                   onClick={() => handleTabChange("history")}
                 >
                   <History className="mr-3 h-5 w-5" /> Password History
-                </Button>
-                
-                <Button 
-                  variant={activeTab === "dna" ? "default" : "outline"} 
-                  size="lg"
-                  className="w-full flex items-center justify-start text-lg"
-                  onClick={() => handleTabChange("dna")}
-                >
-                  <Key className="mr-3 h-5 w-5" /> DNA Password
                 </Button>
                 
                 <Button 
@@ -526,6 +556,21 @@ const Index = () => {
           </div>
         )}
         
+        <div className="flex flex-wrap gap-2 mb-6 justify-center">
+          {generatorButtons.map((btn) => (
+            <Button
+              key={btn.id}
+              variant={activeTab === btn.id ? "default" : "outline"}
+              onClick={() => setActiveTab(btn.id)}
+              className="flex items-center gap-2"
+            >
+              {btn.icon}
+              <span className="hidden sm:inline">{btn.title}</span>
+              <span className="sm:hidden">{btn.title.split(' ').pop()}</span>
+            </Button>
+          ))}
+        </div>
+        
         {isWizardMode ? (
           <div className="w-full mt-6">
             <WizardNavigation 
@@ -540,43 +585,36 @@ const Index = () => {
             {renderContent()}
           </div>
         ) : (
-          <Tabs 
-            defaultValue="analyzer" 
-            value={activeTab}
-            onValueChange={handleTabChange}
-            className="w-full"
-          >
-            <TabsList className="grid w-full grid-cols-8 mb-6 gap-1">
-              <TabsTrigger value="analyzer" className="flex items-center">
-                <Lock className="mr-2 h-4 w-4" /> Analyzer
-              </TabsTrigger>
-              <TabsTrigger value="passphrase" className="flex items-center">
-                <Sparkles className="mr-2 h-4 w-4" /> Passphrases
-              </TabsTrigger>
-              <TabsTrigger value="themed" className="flex items-center">
-                <BarChart className="mr-2 h-4 w-4" /> Themed
-              </TabsTrigger>
-              <TabsTrigger value="assistant" className="flex items-center">
-                <Bot className="mr-2 h-4 w-4" /> Assistant
-              </TabsTrigger>
-              <TabsTrigger value="local" className="flex items-center">
-                <Cpu className="mr-2 h-4 w-4" /> Local
-              </TabsTrigger>
-              <TabsTrigger value="history" className="flex items-center">
-                <History className="mr-2 h-4 w-4" /> History
-              </TabsTrigger>
-              <TabsTrigger value="dna" className="flex items-center">
-                <Key className="mr-2 h-4 w-4" /> DNA
-              </TabsTrigger>
-              <TabsTrigger value="game" className="flex items-center">
-                <Gamepad2 className="mr-2 h-4 w-4" /> Game
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value={activeTab}>
-              {renderContent()}
-            </TabsContent>
-          </Tabs>
+          <div className="w-full">
+            <Tabs 
+              defaultValue="analyzer" 
+              value={activeTab}
+              onValueChange={handleTabChange}
+              className="w-full"
+            >
+              <TabsList className="grid w-full grid-cols-5 mb-6 gap-1">
+                <TabsTrigger value="analyzer" className="flex items-center">
+                  <Lock className="mr-2 h-4 w-4" /> Analyzer
+                </TabsTrigger>
+                <TabsTrigger value="assistant" className="flex items-center">
+                  <Bot className="mr-2 h-4 w-4" /> Assistant
+                </TabsTrigger>
+                <TabsTrigger value="local" className="flex items-center">
+                  <Cpu className="mr-2 h-4 w-4" /> Local
+                </TabsTrigger>
+                <TabsTrigger value="history" className="flex items-center">
+                  <History className="mr-2 h-4 w-4" /> History
+                </TabsTrigger>
+                <TabsTrigger value="game" className="flex items-center">
+                  <Gamepad2 className="mr-2 h-4 w-4" /> Game
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value={activeTab}>
+                {renderContent()}
+              </TabsContent>
+            </Tabs>
+          </div>
         )}
         
         <Separator className="my-12 opacity-30" />
